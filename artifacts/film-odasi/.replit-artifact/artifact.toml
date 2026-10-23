@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Birlikte İzle"
+description = "Arkadaşlarınla özel oda bağlantısıyla katılıp desteklenen video URL'lerini senkron izleyebileceğin, yazılı ve gerçek zamanlı sesli sohbet sunan Türkçe film odası web uygulaması."
+version = "1.0.0"
+id = "artifacts/film-odasi"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21434
+
+[services.development]
+run = "pnpm --filter @workspace/film-odasi run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/film-odasi", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/film-odasi/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21434"
+BASE_PATH = "/"

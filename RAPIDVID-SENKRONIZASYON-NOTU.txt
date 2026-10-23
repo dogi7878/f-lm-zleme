@@ -1,0 +1,8 @@
+Bu yama şu dosyaları değiştirir:
+- artifacts/film-odasi/src/App.tsx
+- artifacts/api-server/src/routes/index.ts
+- artifacts/api-server/src/routes/embed-source.ts (yeni)
+
+Kurulum: Bu ZIP'in içindeki dosyaları mevcut proje klasörüne aynı klasör yapısını koruyarak kopyalayın ve dosyaların üzerine yazılmasını onaylayın. Sonra API sunucusunu yeniden başlatın.
+
+Ne yapar: Filmizlesene sayfasından Rapidvid iframe adresini sunucu tarafında bulmayı dener ve mümkünse sayfanın tamamı yerine doğrudan oynatıcıyı açar. Böylece her cihazda sayfayı aşağı kaydırma ihtiyacı kalkabilir. Oynatma/duraklat için Rapidvid postMessage API'si destekliyorsa komut gönderir. Harici oynatıcı bu komutları kabul etmiyorsa tam senkronizasyon teknik olarak garanti edilemez; bu yama DRM veya erişim korumasını aşmaz. Kaynak sayfa dış istekleri engellerse orijinal sayfa iframe'i kullanılmaya devam eder.
