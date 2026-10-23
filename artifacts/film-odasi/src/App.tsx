@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode, type MouseEvent, type TouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent, type FormEvent, type ReactNode, type MouseEvent, type TouchEvent } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useGetCapabilities, useHealthCheck } from '@workspace/api-client-react';
 import { io, type Socket } from 'socket.io-client';
@@ -7,6 +7,7 @@ import { Link, Route, Switch, useLocation, useParams } from 'wouter';
 import {
   ArrowDownLeft, ArrowLeft, Clipboard, ExternalLink, Film, Headphones, Link2,
   MessageCircle, Mic, MicOff, Pause, Play, Send, ShieldCheck, Sparkles, Users, Wifi, Settings, LogOut, RotateCcw, RotateCw,
+  Youtube, Upload, ListVideo, MoreHorizontal, Crown, MonitorPlay, ChevronRight,
 } from 'lucide-react';
 
 declare global {
@@ -195,12 +196,21 @@ function RoomPage() {
   const [socketReady, setSocketReady] = useState(false);
   const [message, setMessage] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const [activeRoomTab, setActiveRoomTab] = useState<'chat' | 'participants' | 'playlist'>('chat');
+  const [activeVideoSource, setActiveVideoSource] = useState<'youtube' | 'link' | 'upload'>('youtube');
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [shareBaseUrl, setShareBaseUrl] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try { return window.localStorage.getItem('birlikte-izle-share-base') || ''; } catch { return ''; }
+  });
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const [micEnabled, setMicEnabled] = useState(false);
   const [audioNeedsTap, setAudioNeedsTap] = useState(false);
+  const [videoIsPlaying, setVideoIsPlaying] = useState(false);
+  const [videoNeedsTap, setVideoNeedsTap] = useState(false);
   const [joining, setJoining] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const skipInitialRejoinRef = useRef(Boolean(activeRoom === roomId && activeNickname && liveSocket?.connected));
@@ -209,13 +219,34 @@ function RoomPage() {
   const hlsRef = useRef<Hls | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const youtubeRef = useRef<YouTubePlayer | null>(null);
+  // YouTube IFrame API replaces its target element with an iframe. Keep that
+  // target inside an empty React-owned host so React never reconciles a node
+  // which the third-party API has replaced.
+  const youtubeHostRef = useRef<HTMLDivElement | null>(null);
   const youtubeReadyRef = useRef(false);
   const peersRef = useRef(new Map<string, RTCPeerConnection>());
   const remoteAudioRef = useRef(new Map<string, HTMLAudioElement>());
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const roomMoreMenuRef = useRef<HTMLDivElement | null>(null);
+  const seekHideTimerRef = useRef<number | null>(null);
+  const [seekControlsVisible, setSeekControlsVisible] = useState(false);
   const isMember = Boolean(activeNickname && activeRoom === roomId);
   const capabilitiesQuery = useGetCapabilities();
   const cap = capabilitiesQuery.data;
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleOutsidePress = (event: PointerEvent) => {
+      if (roomMoreMenuRef.current && !roomMoreMenuRef.current.contains(event.target as Node)) setMoreMenuOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMoreMenuOpen(false); };
+    document.addEventListener('pointerdown', handleOutsidePress);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePress);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [moreMenuOpen]);
 
   const addPeer = useCallback((peerId: string) => {
     const existing = peersRef.current.get(peerId);
@@ -354,50 +385,96 @@ function RoomPage() {
   }, [room?.videoUrl]);
   const isPageLink = Boolean(room?.videoUrl && !isYoutube && !isHls && !isDirectVideo);
 
-  useEffect(() => {
-    if (!isYoutube || !room?.videoUrl) return;
+  useLayoutEffect(() => {
+    const host = youtubeHostRef.current;
+    if (!isYoutube || !room?.videoUrl || !host) return;
+
     let cancelled = false;
+    let instance: YouTubePlayer | null = null;
+    const previousReadyCallback = window.onYouTubeIframeAPIReady;
+
     const mountPlayer = () => {
-      if (cancelled || !window.YT?.Player) return;
-      youtubeRef.current?.destroy();
-      youtubeReadyRef.current = false;
-      youtubeRef.current = new window.YT.Player(`youtube-player-${roomId}`, {
-        videoId: isYoutube,
-        playerVars: { controls: 0, modestbranding: 1, rel: 0, playsinline: 1 },
-        events: {
-          onReady: ({ target }) => {
-            youtubeRef.current = target; youtubeReadyRef.current = true;
-            const latest = roomRef.current;
-            const targetTime = (latest?.playback.currentTime ?? 0) + (latest?.playback.isPlaying ? Math.max(0, (Date.now() - latest.playback.updatedAt) / 1000) : 0);
-            target.seekTo(targetTime, true);
-            if (latest?.playback.isPlaying) target.playVideo(); else target.pauseVideo();
+      if (cancelled || !window.YT?.Player || !host.isConnected || instance) return;
+
+      // Only this empty host is owned by React. The mount target itself is
+      // created imperatively because the YouTube API replaces it with an iframe.
+      host.replaceChildren();
+      const target = document.createElement('div');
+      target.className = 'youtube-player-target';
+      target.style.width = '100%';
+      target.style.height = '100%';
+      host.appendChild(target);
+
+      try {
+        instance = new window.YT.Player(target, {
+          videoId: isYoutube,
+          playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1, fs: 1, enablejsapi: 1 },
+          events: {
+            onReady: ({ target: player }) => {
+              if (cancelled) {
+                try { player.destroy(); } catch { /* The room may already be closing. */ }
+                return;
+              }
+              youtubeRef.current = player;
+              youtubeReadyRef.current = true;
+              const latest = roomRef.current;
+              const targetTime = (latest?.playback.currentTime ?? 0) + (latest?.playback.isPlaying ? Math.max(0, (Date.now() - latest.playback.updatedAt) / 1000) : 0);
+              try { player.seekTo(targetTime, true); } catch { /* Wait for the player to become seekable. */ }
+              // A newly loaded YouTube video is already paused by default. Do not
+              // issue an unnecessary pause command, which can hide initial playback UI.
+              if (latest?.playback.isPlaying) player.playVideo();
+            },
+            onStateChange: ({ data, target: player }) => {
+              if (cancelled || player !== youtubeRef.current) return;
+              if (data === 1 || data === 2 || data === 0) {
+                socketRef.current?.emit('room:set-playback', { isPlaying: data === 1, currentTime: player.getCurrentTime() });
+              }
+            },
+            onError: ({ data }) => {
+              if (!cancelled) setError(`YouTube oynatıcısı açılamadı (kod ${data}). Video yerleştirmeye kapalı olabilir veya YouTube bağlantısı engellenmiş olabilir.`);
+            },
           },
-          onStateChange: ({ data, target }) => {
-            if (data === 1 || data === 2 || data === 0) {
-              socketRef.current?.emit('room:set-playback', { isPlaying: data === 1, currentTime: target.getCurrentTime() });
-            }
-          },
-          onError: () => setError('Bu YouTube videosu dışarıdan oynatıma izin vermiyor veya kullanılamıyor. Başka bir desteklenen bağlantı dene.'),
-        },
-      });
+        });
+        youtubeRef.current = instance;
+        youtubeReadyRef.current = false;
+      } catch {
+        host.replaceChildren();
+        if (!cancelled) setError('YouTube oynatıcısı başlatılamadı. Bağlantıyı kontrol edip yeniden dene.');
+      }
     };
-    if (window.YT?.Player) mountPlayer();
-    else {
-      const previous = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => { previous?.(); mountPlayer(); };
-      if (!document.querySelector('script[data-youtube-iframe-api]')) {
-        const script = document.createElement('script');
+
+    const handleApiReady = () => {
+      try { previousReadyCallback?.(); } catch { /* Ignore errors in a prior page callback. */ }
+      mountPlayer();
+    };
+
+    if (window.YT?.Player) {
+      mountPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = handleApiReady;
+      let script = document.querySelector<HTMLScriptElement>('script[data-youtube-iframe-api]');
+      if (!script) {
+        script = document.createElement('script');
         script.src = 'https://www.youtube.com/iframe_api';
         script.async = true;
         script.dataset.youtubeIframeApi = 'true';
+        script.onerror = () => {
+          if (!cancelled) setError('YouTube oynatıcı betiği yüklenemedi. Ağ veya tarayıcı engellemesini kontrol et.');
+        };
         document.head.appendChild(script);
       }
     }
+
     return () => {
       cancelled = true;
-      youtubeRef.current?.destroy();
-      youtubeRef.current = null;
+      if (window.onYouTubeIframeAPIReady === handleApiReady) {
+        window.onYouTubeIframeAPIReady = previousReadyCallback;
+      }
       youtubeReadyRef.current = false;
+      if (youtubeRef.current === instance) youtubeRef.current = null;
+      try { instance?.destroy(); } catch { /* YouTube may already have detached its iframe. */ }
+      // Do not leave third-party iframe children in the host between videos.
+      try { host.replaceChildren(); } catch { /* The host may already be detached. */ }
     };
   }, [isYoutube, room?.videoUrl, roomId]);
 
@@ -465,6 +542,7 @@ function RoomPage() {
     const validYoutube = youtubeHosts.includes(parsed.hostname) && /^[\w-]{11}$/.test(videoId);
     const supportedDirect = /\.(mp4|webm|ogg|m4v)$/i.test(parsed.pathname);
     const supportedHls = /\.m3u8$/i.test(parsed.pathname);
+    setVideoIsPlaying(false); setVideoNeedsTap(false);
     socketRef.current?.emit('room:set-video', { videoUrl: url });
     setVideoInput(''); setError('');
     if (!validYoutube && !supportedDirect && !supportedHls) {
@@ -502,6 +580,7 @@ function RoomPage() {
       const complete = await completeResponse.json() as { url?: string; error?: string };
       if (!completeResponse.ok || !complete.url) throw new Error(complete.error || 'Video dosyası tamamlanamadı.');
       const videoUrl = new URL(complete.url, window.location.origin).toString();
+      setVideoIsPlaying(false); setVideoNeedsTap(true);
       socketRef.current?.emit('room:set-video', { videoUrl });
       setVideoInput('');
       setUploadProgress(100);
@@ -555,7 +634,11 @@ function RoomPage() {
       setError('');
       return;
     }
-    if (!navigator.mediaDevices?.getUserMedia) { setError('Mikrofon için güvenli bağlantı (HTTPS) ve desteklenen bir tarayıcı gerekli.'); return; }
+    const loopback = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname.toLowerCase());
+    if (!navigator.mediaDevices?.getUserMedia || (!window.isSecureContext && !loopback)) {
+      setError('Mikrofon için HTTPS bağlantısı gerekli. Telefonda Cloudflare Global Server adresinin https:// ile başlayan bağlantısını aç; bilgisayarda localhost kullanılabilir.');
+      return;
+    }
     setJoining(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -571,21 +654,47 @@ function RoomPage() {
       }
       socketRef.current?.emit('room:set-mic', { enabled: true });
       setMicEnabled(true); setError('');
-    } catch {
-      setError('Mikrofona erişim verilmedi. Tarayıcı izinlerini ve HTTPS bağlantısını kontrol et.');
+    } catch (cause) {
+      const name = cause instanceof DOMException ? cause.name : (cause as { name?: string } | null)?.name;
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+        setError('Mikrofon izni reddedildi. Adres çubuğundaki kilit/ayar simgesinden Mikrofon → İzin ver seç; sonra sayfayı yenileyip tekrar dene.');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setError('Bu cihazda kullanılabilir mikrofon bulunamadı. Mikrofonun bağlı olduğunu kontrol et.');
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        setError('Mikrofon başka bir uygulama tarafından kullanılıyor olabilir. Diğer uygulamaları kapatıp tekrar dene.');
+      } else {
+        setError('Mikrofon açılamadı. HTTPS/Cloudflare bağlantısını ve tarayıcı izinlerini kontrol et.');
+      }
     } finally { setJoining(false); }
   };
-  const togglePlayback = () => {
+  const togglePlayback = async () => {
     if (!room) return;
     if (youtubeRef.current && youtubeReadyRef.current) {
+      // YouTube uses its own native player controls; this fallback remains for other UI actions.
       if (room.playback.isPlaying) youtubeRef.current.pauseVideo(); else youtubeRef.current.playVideo();
       socketRef.current?.emit('room:set-playback', { isPlaying: !room.playback.isPlaying, currentTime: youtubeRef.current.getCurrentTime() });
       return;
     }
     const element = videoRef.current;
     if (element) {
-      if (element.paused) void element.play().catch(() => undefined); else element.pause();
-      socketRef.current?.emit('room:set-playback', { isPlaying: element.paused === false, currentTime: element.currentTime });
+      if (element.paused) {
+        try {
+          await element.play();
+          setVideoNeedsTap(false);
+          setVideoIsPlaying(true);
+          setError('');
+          socketRef.current?.emit('room:set-playback', { isPlaying: true, currentTime: element.currentTime });
+        } catch {
+          setVideoNeedsTap(true);
+          setVideoIsPlaying(false);
+          setToast('Videoyu başlatmak için oynat düğmesine dokun.');
+          window.setTimeout(() => setToast(''), 2600);
+        }
+      } else {
+        element.pause();
+        setVideoIsPlaying(false);
+        socketRef.current?.emit('room:set-playback', { isPlaying: false, currentTime: element.currentTime });
+      }
     } else socketRef.current?.emit('room:set-playback', { isPlaying: !room.playback.isPlaying, currentTime: room.playback.currentTime });
   };
   const seekBy = (delta: number) => {
@@ -609,6 +718,14 @@ function RoomPage() {
     setToast(delta > 0 ? '+10 saniye' : '−10 saniye');
     window.setTimeout(() => setToast(''), 900);
   };
+  const revealSeekControls = () => {
+    setSeekControlsVisible(true);
+    if (seekHideTimerRef.current !== null) window.clearTimeout(seekHideTimerRef.current);
+    seekHideTimerRef.current = window.setTimeout(() => setSeekControlsVisible(false), 2200);
+  };
+  useEffect(() => () => {
+    if (seekHideTimerRef.current !== null) window.clearTimeout(seekHideTimerRef.current);
+  }, []);
   const handleStageDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('button, a, input')) return;
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -628,8 +745,18 @@ function RoomPage() {
       lastTouchRef.current = { time: now, x: touch.clientX };
     }
   };
-  const handleVideoPlay = () => { if (videoRef.current) socketRef.current?.emit('room:set-playback', { isPlaying: true, currentTime: videoRef.current.currentTime }); };
-  const handleVideoPause = () => { if (videoRef.current) socketRef.current?.emit('room:set-playback', { isPlaying: false, currentTime: videoRef.current.currentTime }); };
+  const handleVideoPlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    setVideoIsPlaying(true); setVideoNeedsTap(false);
+    socketRef.current?.emit('room:set-playback', { isPlaying: true, currentTime: video.currentTime });
+  };
+  const handleVideoPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    setVideoIsPlaying(false);
+    socketRef.current?.emit('room:set-playback', { isPlaying: false, currentTime: video.currentTime });
+  };
   const handleVideoSeek = () => { if (videoRef.current) socketRef.current?.emit('room:set-playback', { isPlaying: !videoRef.current.paused, currentTime: videoRef.current.currentTime }); };
   const handleVideoMetadata = () => {
     const video = videoRef.current;
@@ -640,7 +767,13 @@ function RoomPage() {
       try { video.currentTime = targetTime; } catch { /* Wait for the stream to become seekable. */ }
     }
     if (playback.isPlaying && video.paused) {
-      void video.play().catch(() => setError('Tarayıcı otomatik oynatmayı engelledi. Videoyu başlatmak için oynat düğmesine dokun.'));
+      void video.play().then(() => {
+        setVideoNeedsTap(false); setVideoIsPlaying(true);
+      }).catch(() => {
+        // Browser autoplay policy: keep the room usable and expose our visible
+        // center play button instead of showing a fatal-looking error banner.
+        setVideoNeedsTap(true); setVideoIsPlaying(false);
+      });
     }
   };
   useEffect(() => {
@@ -660,14 +793,101 @@ function RoomPage() {
       try { video.currentTime = targetTime; } catch { /* Metadata may not be seekable yet. */ }
     }
     if (room.playback.isPlaying && video.paused) {
-      void video.play().catch(() => setError('Tarayıcı otomatik oynatmayı engelledi. Videoyu başlatmak için oynat düğmesine dokun.'));
+      void video.play().then(() => {
+        setVideoNeedsTap(false); setVideoIsPlaying(true);
+      }).catch(() => {
+        setVideoNeedsTap(true); setVideoIsPlaying(false);
+      });
     }
     if (!room.playback.isPlaying && !video.paused) video.pause();
   }, [room?.playback.currentTime, room?.playback.isPlaying, room?.playback.updatedAt, room?.videoUrl, isYoutube]);
 
+  const copyTextToClipboard = async (value: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch { /* Legacy selection copy is useful on local HTTP and older mobile browsers. */ }
+    try {
+      const field = document.createElement('textarea');
+      field.value = value;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      field.style.pointerEvents = 'none';
+      document.body.appendChild(field);
+      field.focus();
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      return copied;
+    } catch { return false; }
+  };
+  const isLoopbackHost = (host: string) => ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(host.toLowerCase());
+  const configureShareAddress = () => {
+    const defaultValue = shareBaseUrl || (isLoopbackHost(window.location.hostname) ? '' : window.location.origin);
+    const entered = window.prompt(
+      'Telefondan açılabilecek paylaşım adresini gir. Global Server terminalindeki HTTPS Cloudflare adresini veya aynı Wi-Fi için bilgisayarının Network adresini yaz. Örnek: https://ornek.trycloudflare.com',
+      defaultValue,
+    );
+    if (entered === null) return;
+    const trimmed = entered.trim();
+    if (!trimmed) {
+      setShareBaseUrl('');
+      try { window.localStorage.removeItem('birlikte-izle-share-base'); } catch { /* Storage may be disabled. */ }
+      setToast('Özel paylaşım adresi kaldırıldı.');
+      window.setTimeout(() => setToast(''), 2400);
+      return;
+    }
+    try {
+      const parsed = new URL(trimmed);
+      if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('invalid');
+      const normalized = parsed.origin;
+      setShareBaseUrl(normalized);
+      try { window.localStorage.setItem('birlikte-izle-share-base', normalized); } catch { /* Keep it for this page session. */ }
+      setToast('Paylaşım adresi kaydedildi. Cloudflare adresi değişirse buradan güncelle.');
+      window.setTimeout(() => setToast(''), 3000);
+    } catch {
+      setToast('Geçerli bir http:// veya https:// adresi gir.');
+      window.setTimeout(() => setToast(''), 2600);
+    }
+  };
+  const copyRoomCode = async () => {
+    const copied = await copyTextToClipboard(roomId);
+    if (copied) setToast('Oda kodu kopyalandı.');
+    else window.prompt('Oda kodunu kopyala:', roomId);
+    window.setTimeout(() => setToast(''), 2400);
+  };
   const copyInvite = async () => {
-    try { await navigator.clipboard.writeText(window.location.href); setToast('Davet bağlantısı kopyalandı'); window.setTimeout(() => setToast(''), 2400); }
-    catch { setToast('Bağlantıyı adres çubuğundan kopyalayabilirsin'); window.setTimeout(() => setToast(''), 3000); }
+    let origin = shareBaseUrl || window.location.origin;
+    if (isLoopbackHost(window.location.hostname) && !shareBaseUrl) {
+      const entered = window.prompt(
+        'Bu sayfa localhost üzerinden açık; bu bağlantı telefonda çalışmaz. Global Server terminalindeki Cloudflare HTTPS adresini veya aynı Wi-Fi için Vite Network adresini buraya yapıştır.',
+        '',
+      );
+      if (entered === null || !entered.trim()) {
+        setToast('Önce Global/Cloudflare adresini üç nokta menüsünden ayarlayabilirsin.');
+        window.setTimeout(() => setToast(''), 3000);
+        return;
+      }
+      try {
+        const parsed = new URL(entered.trim());
+        if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('invalid');
+        origin = parsed.origin;
+        setShareBaseUrl(origin);
+        try { window.localStorage.setItem('birlikte-izle-share-base', origin); } catch { /* Browser storage can be unavailable. */ }
+      } catch {
+        setToast('Geçerli bir http:// veya https:// adresi gir.');
+        window.setTimeout(() => setToast(''), 2600);
+        return;
+      }
+    }
+    const inviteUrl = new URL(`${window.location.pathname}${window.location.search}`, origin).toString();
+    const copied = await copyTextToClipboard(inviteUrl);
+    if (copied) setToast('Davet bağlantısı kopyalandı. Telefonda açılmazsa Cloudflare adresini kullan.');
+    else window.prompt('Davet bağlantısını kopyala:', inviteUrl);
+    window.setTimeout(() => setToast(''), 3000);
   };
   if (!isMember && !socketReady) return <div className="app-shell">
     <header className="topbar"><Link href="/" className="brand"><span className="brand-mark"><Film size={19} /></span><span className="brand-name">salon</span></Link><div className="topbar-note"><i /> Davetli salon</div></header>
@@ -696,27 +916,60 @@ function RoomPage() {
     </main>
   </div>;
 
-  return <div className="app-shell">
-    <header className="topbar">
-      <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><Film size={19} /></span><span className="brand-name">BİRLİKTE İZLE</span></Link>
-      <div className="topbar-note"><i /> {socketReady ? 'Arkadaşlarınla aynı salondasın' : 'Salona bağlanıyor'}</div>
+  return <div className="app-shell room-premium-shell">
+    <header className="topbar room-topbar">
+      <Link href="/" className="brand room-brand" data-testid="link-home">
+        <span className="brand-mark"><Film size={21} strokeWidth={2.6} /></span>
+        <span className="brand-name">BİRLİKTE <em>İZLE</em></span>
+      </Link>
+      <nav className="room-primary-nav" aria-label="Ana menü">
+        <a className="room-nav-active" href="/">Ana Sayfa</a>
+        <a href="/#ozellikler">Özellikler</a>
+        <a href="/#nasil-calisir">Nasıl Çalışır?</a>
+        <a href="/#sss">SSS</a>
+      </nav>
+      <div className="room-topbar-actions">
+        <span className="room-head-count"><Users size={16} /><b>{room?.participants.length ?? 0} kişi</b></span>
+        <button className="room-top-button" type="button" onClick={() => { setToast('Oda ayarları'); window.setTimeout(() => setToast(''), 1400); }}><Settings size={17} /> Ayarlar</button>
+        <button className="room-top-exit" type="button" onClick={() => { socketRef.current?.disconnect(); activeRoom = ''; seededRoom = null; navigate('/'); }}><LogOut size={17} /> Odadan Çık</button>
+      </div>
     </header>
-    <main className="room-layout">
+    <main className="room-layout cinema-layout">
       <section className="watch-main">
         <div className="room-header">
-          <div><h1 className="room-title">Bu akşamın salonu</h1><div className="room-kicker">Oda {roomId} <span style={{ margin: '0 6px' }}>·</span> <span className="live-indicator" /> {socketReady ? 'Canlı' : 'Bağlantı kuruluyor'}</div></div>
+          <div className="room-heading-copy">
+            <h1 className="room-title">Bu akşamın salonu <Crown className="room-title-crown" size={21} fill="currentColor" /></h1>
+            <div className="room-kicker">
+              <span className="room-meta-chip">Oda: {roomId}<button type="button" aria-label="Oda bağlantısını kopyala" onClick={() => void copyInvite()}><Clipboard size={13} /></button></span>
+              <span className="room-meta-chip"><Users size={12} /> {room?.participants.length ?? 0} kişi</span>
+              <span className="room-status-chip"><i /> {socketReady ? 'Canlı' : 'Bağlanıyor'}</span>
+              <span className="room-meta-chip room-theme-chip">Film Gecesi</span>
+            </div>
+          </div>
           <div className="room-actions">
-            <button className="pill-action" data-testid="button-copy-invite" onClick={() => void copyInvite()}><Clipboard size={14} /> Davet et</button>
-            {(audioNeedsTap || (room?.participants.length ?? 0) > 1) && <button className="pill-action" data-testid="button-enable-remote-audio" onClick={() => void enableRemoteAudio()}><Headphones size={14} /> Karşı tarafın sesini aç</button>}
-            <button className="pill-action" data-testid="button-toggle-mic" onClick={() => void toggleMic()} disabled={joining} title={micEnabled ? 'Mikrofonu kapat' : 'Mikrofonu aç'}>{micEnabled ? <Mic size={14} /> : <MicOff size={14} />}{joining ? 'İzin bekleniyor' : micEnabled ? 'Mikrofon açık' : 'Mikrofon kapalı'}</button>
-            <button className="pill-action settings-action" type="button" onClick={() => { setToast('Oda ayarları'); window.setTimeout(() => setToast(''), 1400); }}><Settings size={15} /> Ayarlar</button>
-            <button className="pill-action exit-action" type="button" onClick={() => { socketRef.current?.disconnect(); activeRoom = ''; seededRoom = null; navigate('/'); }}><LogOut size={15} /> Odadan Çık</button>
+            <button className="pill-action" data-testid="button-copy-invite" onClick={() => void copyInvite()}><Link2 size={15} /> Davet Et</button>
+            {(audioNeedsTap || (room?.participants.length ?? 0) > 1) && <button className="pill-action" data-testid="button-enable-remote-audio" onClick={() => void enableRemoteAudio()}><Headphones size={15} /> Sesi Aç</button>}
+            <button className={`pill-action ${micEnabled ? 'mic-is-on' : ''}`} data-testid="button-toggle-mic" onClick={() => void toggleMic()} disabled={joining} title={micEnabled ? 'Mikrofonu kapat' : 'Mikrofonu aç'}>{micEnabled ? <Mic size={15} /> : <MicOff size={15} />}{joining ? 'İzin bekleniyor' : 'Mikrofon'}</button>
+            <button className="pill-action settings-action" type="button" onClick={() => { setToast('Oda ayarları'); window.setTimeout(() => setToast(''), 1400); }}><Settings size={16} /> Ayarlar</button>
+            <div className="room-more-wrap" ref={roomMoreMenuRef}>
+              <button className="pill-action more-action" type="button" aria-label="Diğer oda seçenekleri" aria-haspopup="menu" aria-expanded={moreMenuOpen} onClick={() => setMoreMenuOpen((open) => !open)}><MoreHorizontal size={18} /></button>
+              {moreMenuOpen && <div className="room-more-menu" role="menu" aria-label="Oda seçenekleri">
+                <div className="room-more-menu-heading">Oda seçenekleri</div>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); void copyInvite(); }}><Link2 size={16} /><span><b>Davet bağlantısını kopyala</b><small>Arkadaşını aynı odaya çağır</small></span></button>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); void copyRoomCode(); }}><Clipboard size={16} /><span><b>Oda kodunu kopyala</b><small>{roomId}</small></span></button>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); configureShareAddress(); }}><ExternalLink size={16} /><span><b>Paylaşım adresini ayarla</b><small>{shareBaseUrl || (isLoopbackHost(window.location.hostname) ? 'Cloudflare / Network adresi gerekli' : window.location.origin)}</small></span></button>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); setActiveRoomTab('participants'); }}><Users size={16} /><span><b>Katılımcıları göster</b><small>Salondaki kişileri görüntüle</small></span></button>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); setActiveRoomTab('playlist'); }}><ListVideo size={16} /><span><b>Oynatma listesini aç</b><small>Paylaşılan videoya git</small></span></button>
+                <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); void toggleMic(); }} disabled={joining}><span className="room-more-menu-icon">{micEnabled ? <Mic size={16} /> : <MicOff size={16} />}</span><span><b>{micEnabled ? 'Mikrofonu kapat' : 'Mikrofonu aç'}</b><small>{micEnabled ? 'Mikrofon şu an açık' : 'Tarayıcı izin isteyebilir'}</small></span></button>
+                {(audioNeedsTap || (room?.participants.length ?? 0) > 1) && <button type="button" role="menuitem" onClick={() => { setMoreMenuOpen(false); void enableRemoteAudio(); }}><Headphones size={16} /><span><b>Karşı tarafın sesini aç</b><small>Ses iznini yeniden dene</small></span></button>}
+              </div>}
+            </div>
           </div>
         </div>
         {error && <div role="alert" className="error-banner" data-testid="status-room-error">{error}<button onClick={() => setError('')}>Kapat</button></div>}
-        <div className="video-stage" data-testid="video-stage" onDoubleClick={handleStageDoubleClick} onTouchEnd={handleStageTouchEnd}>
+        <div className="video-stage cinema-video-stage" data-testid="video-stage" onDoubleClick={handleStageDoubleClick} onTouchStart={revealSeekControls} onTouchEnd={handleStageTouchEnd} onPointerMove={(event) => { if (event.pointerType === 'mouse') revealSeekControls(); }} onPointerLeave={(event) => { if (event.pointerType === 'mouse') setSeekControlsVisible(false); }}>
           {room?.videoUrl && isYoutube
-            ? <div id={`youtube-player-${roomId}`} aria-label="Eşzamanlı YouTube videosu" style={{ width: '100%', height: '100%' }} />
+            ? <div ref={youtubeHostRef} className="youtube-player-host" aria-label="Eşzamanlı YouTube videosu" />
             : room?.videoUrl && isPageLink
               ? <div className="embedded-source-wrap">
                   <iframe
@@ -731,41 +984,85 @@ function RoomPage() {
                 </div>
               : room?.videoUrl
                 ? <video ref={videoRef} controls playsInline onLoadedMetadata={handleVideoMetadata} onPlay={handleVideoPlay} onPause={handleVideoPause} onSeeked={handleVideoSeek} onError={() => setError(isHls ? 'HLS akışı yüklenemedi. Kaynak herkese açık ve tarayıcıdan erişilebilir olmalı; DRM/erişim korumalı akışlar desteklenmez.' : 'Video yüklenemedi. Doğrudan MP4, WebM veya Ogg bağlantısı olduğundan ve kaynağın erişime izin verdiğinden emin ol.')} />
-                : <div className="video-empty"><div className="film-icon"><Film size={25} /></div><h2>Film gecesi için yer açıldı</h2><p>Herkese açık desteklenen bir video bağlantısı ekle. Oynatma odadaki herkesle eşzamanlanır.</p></div>}
-          {(!room?.videoUrl || isYoutube) && <div className="stage-overlay"><span className="sync-badge"><Wifi size={12} /> {room?.playback.isPlaying ? 'Şimdi oynatılıyor' : 'Eşzamanlı salon'}</span><button className="play-big" aria-label={room?.playback.isPlaying ? 'Duraklat' : 'Oynat'} onClick={togglePlayback}>{room?.playback.isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}</button><span className="sync-badge">{formatTime(room?.playback.currentTime || 0)}</span></div>}
-          {room?.videoUrl && !isPageLink && <div className="seek-overlay" aria-label="Video sarma kontrolleri">
-            <button type="button" className="seek-button seek-back" onClick={(event) => { event.stopPropagation(); seekBy(-10); }} aria-label="10 saniye geri sar"><RotateCcw size={22}/><span>10</span></button>
-            <button type="button" className="seek-button seek-forward" onClick={(event) => { event.stopPropagation(); seekBy(10); }} aria-label="10 saniye ileri sar"><RotateCw size={22}/><span>10</span></button>
+                : <div className="video-empty cinema-video-empty"><div className="film-icon"><Film size={26} /></div><h2>Film gecesi için yer açıldı</h2><p>İzlemek istediğin videonun bağlantısını ekle veya bilgisayarından bir video yükle. Oynatma odadaki herkesle eşzamanlanır.</p></div>}
+          {!room?.videoUrl && <div className="stage-overlay"><span className="sync-badge"><Wifi size={12} /> Eşzamanlı salon</span><span className="sync-badge">{formatTime(room?.playback.currentTime || 0)}</span></div>}
+          {Boolean(room?.videoUrl && !isYoutube && !isPageLink && !videoIsPlaying) && <div className="local-video-center-overlay"><button className="play-big local-video-center-play" aria-label="Videoyu oynat" onClick={() => void togglePlayback()}><Play size={24} fill="currentColor" /></button><span>{videoNeedsTap ? 'Oynatmak için dokun' : 'Videoyu başlat'}</span></div>}
+          {room?.videoUrl && !isPageLink && <div className={`seek-overlay ${seekControlsVisible ? 'seek-overlay-visible' : ''}`} aria-label="Video sarma kontrolleri">
+            <button type="button" className="seek-button seek-back" onClick={(event) => { event.stopPropagation(); revealSeekControls(); seekBy(-10); }} aria-label="10 saniye geri sar"><RotateCcw size={22}/><span>10</span></button>
+            <button type="button" className="seek-button seek-forward" onClick={(event) => { event.stopPropagation(); revealSeekControls(); seekBy(10); }} aria-label="10 saniye ileri sar"><RotateCw size={22}/><span>10</span></button>
           </div>}
         </div>
-        <form className="video-urlbar" onSubmit={setVideo}>
-          <Link2 size={15} /><input data-testid="input-video-url" aria-label="Video bağlantısı" value={videoInput} onChange={(e) => setVideoInput(e.target.value)} placeholder="YouTube, doğrudan MP4/HLS veya sayfa bağlantısı…" />
-          <button className="url-submit" data-testid="button-set-video" type="submit">Bağlantıyı ekle</button>
-        </form>
-        <div className="local-video-row">
-          <input ref={fileInputRef} type="file" accept=".mp4,.webm,.ogg,.m4v,video/mp4,video/webm,video/ogg" onChange={(event) => void uploadLocalVideo(event)} hidden />
-          <button className="local-video-button" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadProgress !== null && uploadProgress < 100}><Film size={15} /> {uploadProgress !== null && uploadProgress < 100 ? `Video yükleniyor… %${uploadProgress}` : 'Cihazımdan video seç'}</button>
-          <span>Seçilen video sunucuya yüklenir ve odadakilerle paylaşılır.</span>
+
+        <div className="room-source-grid" aria-label="Video kaynağı seçimi">
+          <button type="button" className={`room-source-card source-youtube ${activeVideoSource === 'youtube' ? 'source-selected' : ''}`} onClick={() => { setActiveVideoSource('youtube'); document.getElementById('room-video-url')?.focus(); }}>
+            <span className="source-icon source-youtube-icon"><Youtube size={22} fill="currentColor" /></span><span><b>YouTube</b><small>Video izle</small></span>
+          </button>
+          <button type="button" className={`room-source-card ${activeVideoSource === 'link' ? 'source-selected' : ''}`} onClick={() => { setActiveVideoSource('link'); document.getElementById('room-video-url')?.focus(); }}>
+            <span className="source-icon"><Link2 size={23} /></span><span><b>Video Bağlantısı</b><small>MP4, HLS, WebM</small></span>
+          </button>
+          <button type="button" className={`room-source-card ${activeVideoSource === 'upload' ? 'source-selected' : ''}`} onClick={() => { setActiveVideoSource('upload'); fileInputRef.current?.click(); }} disabled={uploadProgress !== null && uploadProgress < 100}>
+            <span className="source-icon"><Upload size={23} /></span><span><b>Dosya Yükle</b><small>{uploadProgress !== null && uploadProgress < 100 ? `Yükleniyor %${uploadProgress}` : 'Bilgisayardan seç'}</small></span>
+          </button>
+          <button type="button" className={`room-source-card ${activeRoomTab === 'playlist' ? 'source-selected' : ''}`} onClick={() => setActiveRoomTab('playlist')}>
+            <span className="source-icon"><ListVideo size={23} /></span><span><b>Oynatma Listesi</b><small>Sıralı oynat</small></span>
+          </button>
         </div>
-        <div className="room-footnote">Yerel video dosyaları bu bilgisayarda çalışan sunucuya parça parça yüklenir; yükleme tamamlanınca salondaki herkes aynı video bağlantısını alır. MP4, WebM, Ogg ve M4V desteklenir; tarayıcı/codec uyumluluğu gerekir. Dosyalar sunucu diskinde kalır, bu yüzden yalnızca paylaşmaya hakkın olan videoları yükle. Doğrudan MP4/HLS ve YouTube da desteklenir; dış film sayfaları senkronize oynatılmaz.</div>
+        <form className="video-urlbar cinema-video-urlbar" onSubmit={setVideo}>
+          <span className="video-link-symbol"><Link2 size={19} /></span>
+          <input id="room-video-url" data-testid="input-video-url" aria-label="Video bağlantısı" value={videoInput} onChange={(e) => setVideoInput(e.target.value)} placeholder={activeVideoSource === 'youtube' ? 'YouTube linki yapıştırın…' : 'Video bağlantısını yapıştırın…'} />
+          <button className="url-submit" data-testid="button-set-video" type="submit"><Play size={16} fill="currentColor" /> Başlat</button>
+        </form>
+        <input ref={fileInputRef} type="file" accept=".mp4,.webm,.ogg,.m4v,video/mp4,video/webm,video/ogg" onChange={(event) => void uploadLocalVideo(event)} hidden />
+
+        <section className="room-queue-section" aria-label="Film sırası">
+          <div className="room-queue-heading"><h2>Sıradaki Videolar</h2><span>3</span><small className="sr-only">Tasarım referansındaki örnek kapaklar. Ortak oynatma kuyruğu henüz etkin değil.</small></div>
+          <div className="room-queue-strip">
+            <div className="room-queue-card queue-current">
+              <div className="room-queue-thumb poster-lotr"><span className="queue-play-mark"><Play size={17} fill="currentColor" /></span></div>
+              <div className="room-queue-caption"><b>Yüzüklerin Efendisi</b><span>2:18:06</span></div>
+            </div>
+            <div className="room-queue-card"><div className="room-queue-thumb poster-interstellar"></div><div className="room-queue-caption"><b>Interstellar</b><span>2:49:04</span></div></div>
+            <div className="room-queue-card"><div className="room-queue-thumb poster-inception"></div><div className="room-queue-caption"><b>Inception</b><span>2:28:07</span></div></div>
+            <div className="room-queue-card"><div className="room-queue-thumb poster-batman"></div><div className="room-queue-caption"><b>The Batman</b><span>2:56:11</span></div></div>
+            <div className="room-queue-card queue-card-last"><div className="room-queue-thumb poster-dune"></div><div className="room-queue-caption"><b>Dune</b><span>2:35:20</span></div></div>
+            <button type="button" className="queue-next-button" aria-label="Oynatma listesi sekmesini aç" onClick={() => setActiveRoomTab('playlist')}><ChevronRight size={20} /></button>
+          </div>
+        </section>
+        <details className="room-info-details">
+          <summary>Video ve ses hakkında bilgi</summary>
+          <p>Yerel video dosyaları bu bilgisayarda çalışan sunucuya parça parça yüklenir; yükleme tamamlanınca salondaki herkes aynı video bağlantısını alır. MP4, WebM, Ogg ve M4V desteklenir; tarayıcı/codec uyumluluğu gerekir. Dosyalar sunucu diskinde kalır, bu yüzden yalnızca paylaşmaya hakkın olan videoları yükle. Doğrudan MP4/HLS ve YouTube da desteklenir; dış film sayfaları senkronize oynatılmaz.</p>
+        </details>
       </section>
-      <aside className="room-side">
-        <div className="side-head"><span className="side-title">Salondakiler</span><span className="count-tag" data-testid="text-participant-count">{room?.participants.length ?? 0}{cap ? ` / ${cap.maxParticipants}` : ''}</span></div>
-        <div className="people" data-testid="list-participants">
+      <aside className="room-side cinema-room-side">
+        <div className="room-panel-tabs" role="tablist" aria-label="Salon paneli">
+          <button type="button" role="tab" aria-selected={activeRoomTab === 'chat'} className={activeRoomTab === 'chat' ? 'panel-tab panel-tab-active' : 'panel-tab'} onClick={() => setActiveRoomTab('chat')}><MessageCircle size={15} /> Sohbet</button>
+          <button type="button" role="tab" aria-selected={activeRoomTab === 'participants'} className={activeRoomTab === 'participants' ? 'panel-tab panel-tab-active' : 'panel-tab'} onClick={() => setActiveRoomTab('participants')}><Users size={15} /> Katılımcılar ({room?.participants.length ?? 0})</button>
+          <button type="button" role="tab" aria-selected={activeRoomTab === 'playlist'} className={activeRoomTab === 'playlist' ? 'panel-tab panel-tab-active' : 'panel-tab'} onClick={() => setActiveRoomTab('playlist')}><ListVideo size={15} /> Oynatma Listesi</button>
+        </div>
+        {activeRoomTab === 'chat' && <>
+          <div className="chat-messages cinema-chat-messages" data-testid="list-chat">
+            {room?.messages.map((item) => <ChatBubble key={item.id} message={item} />)}
+            {!room?.messages.length && <div className="chat-empty">Henüz sohbette ses yok.<br />İlk mesajı sen bırak.</div>}
+            <div ref={chatEndRef} />
+          </div>
+          <form className="chat-form cinema-chat-form" onSubmit={submitChat}>
+            <input data-testid="input-chat-message" aria-label="Sohbet mesajı" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Bir şeyler yaz…" maxLength={500} />
+            <button className="send-btn" data-testid="button-send-message" type="submit" aria-label="Mesaj gönder" disabled={!message.trim()}><Send size={18} /></button>
+          </form>
+          <div className="room-side-hint">Sesli konuşma için tarayıcı mikrofon izni ve HTTPS gerekir.</div>
+        </>}
+        {activeRoomTab === 'participants' && <div className="people cinema-people" data-testid="list-participants">
           {room?.participants.map((person) => <div className="person-row" key={person.id} data-testid={`participant-${person.id}`}><div className="avatar">{initials(person.nickname)}</div><span className="person-name">{person.nickname}{person.id === socketRef.current?.id ? ' (sen)' : ''}</span><span className="person-state">{person.microphoneEnabled ? 'Sesi açık' : 'Dinliyor'}</span></div>)}
-          {!room && <div className="person-row"><div className="skeleton" style={{ width: 31, height: 31 }} /><div className="skeleton" style={{ width: '58%', height: 12 }} /></div>}
-        </div>
-        <div className="chat-head"><span className="side-title">Salon sohbeti</span><MessageCircle size={15} color="#809085" /></div>
-        <div className="chat-messages" data-testid="list-chat">
-          {room?.messages.map((item) => <ChatBubble key={item.id} message={item} />)}
-          {!room?.messages.length && <div className="chat-empty">Henüz sohbette ses yok.<br />İlk mesajı sen bırak.</div>}
-          <div ref={chatEndRef} />
-        </div>
-        <form className="chat-form" onSubmit={submitChat}>
-          <input data-testid="input-chat-message" aria-label="Sohbet mesajı" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Bir şeyler yaz…" maxLength={500} />
-          <button className="send-btn" data-testid="button-send-message" type="submit" aria-label="Mesaj gönder" disabled={!message.trim()}><Send size={15} /></button>
-        </form>
-        <div className="room-footnote">Sesli konuşma tarayıcı mikrofon izni ve HTTPS gerektirir. Bazı ağlarda bağlantı kurulamayabilir; TURN aktarım sunucusu sağlanmıyor.</div>
+          {!room?.participants.length && <div className="chat-empty">Katılımcılar yükleniyor…</div>}
+          <div className="participant-side-hint"><Users size={17} /> Aynı salondaki herkes burada görünür.</div>
+        </div>}
+        {activeRoomTab === 'playlist' && <div className="room-playlist-panel">
+          <div className="playlist-empty-icon"><ListVideo size={25} /></div>
+          <h3>Oynatma Listesi</h3>
+          {room?.videoUrl ? <div className="playlist-current"><span className="playlist-current-icon"><MonitorPlay size={18} /></span><div><b>Paylaşılan video</b><small>{room.videoUrl.length > 48 ? `${room.videoUrl.slice(0, 45)}…` : room.videoUrl}</small></div></div> : <p>Henüz bir video eklenmedi. YouTube bağlantısı, doğrudan video adresi veya dosya yükleyerek başlayabilirsin.</p>}
+          <button type="button" className="playlist-add-button" onClick={() => { setActiveVideoSource('youtube'); document.getElementById('room-video-url')?.focus(); }}> <Link2 size={15} /> Video bağlantısı ekle</button>
+          <small className="playlist-note">Ortak, sıralı video kuyruğu sunucu tarafında henüz etkin değil.</small>
+        </div>}
       </aside>
     </main>
     {toast && <div className="status-toast" role="status">{toast}</div>}

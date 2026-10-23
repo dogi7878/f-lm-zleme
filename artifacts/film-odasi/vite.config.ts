@@ -71,7 +71,7 @@ export default defineConfig({
     // Forward API and Socket.IO polling/WebSocket traffic to the API server.
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
         ws: true,
       },
