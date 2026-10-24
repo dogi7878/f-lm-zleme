@@ -1822,3 +1822,64 @@ body:has(.cinema-layout) .local-video-center-overlay > span { color:#fff6d4;font
   body:has(.cinema-layout) .local-video-center-overlay .local-video-center-play svg { width:22px;height:22px; }
   body:has(.cinema-layout) .local-video-center-overlay > span { font-size:10px; }
 }
+
+
+/* Mobile-only player-in-player controls. The original player DOM stays mounted. */
+body:has(.cinema-layout) .mini-player-toolbar { position:absolute;z-index:20;top:8px;right:8px;display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .15s ease;pointer-events:none; }
+body:has(.cinema-layout) .video-stage:hover .mini-player-toolbar,
+body:has(.cinema-layout) .mini-player-active .mini-player-toolbar,
+body:has(.cinema-layout) .mini-player-toolbar:focus-within { opacity:1; }
+body:has(.cinema-layout) .mini-player-toggle,
+body:has(.cinema-layout) .mini-player-drag,
+body:has(.cinema-layout) .mini-player-resize { min-width:38px;min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid #ffda4b99;border-radius:11px;background:#090a0deF;color:#ffe17a;box-shadow:0 5px 18px #0009;pointer-events:auto;touch-action:none; }
+body:has(.cinema-layout) .mini-player-drag { cursor:grab;font-size:10px;font-weight:800; }
+body:has(.cinema-layout) .mini-player-drag:active { cursor:grabbing; }
+body:has(.cinema-layout) .mini-player-resize { position:absolute;right:5px;bottom:5px;z-index:25;min-width:30px;min-height:30px;width:30px;height:30px;padding:0;border-radius:8px;cursor:nwse-resize;touch-action:none; }
+body:has(.cinema-layout) .mini-player-active { position:fixed!important;z-index:9999!important;left:auto;right:12px;bottom:calc(76px + env(safe-area-inset-bottom, 0px));top:auto;width:min(72vw,360px);height:auto;min-height:0!important;max-height:none;aspect-ratio:16/9;overflow:hidden;touch-action:none;border:1px solid #ffcf38;border-radius:13px;box-shadow:0 14px 45px #000c,0 0 0 1px #ffc92833; }
+body:has(.cinema-layout) .mini-player-active .mini-player-toolbar { opacity:1;top:5px;right:5px; }
+body:has(.cinema-layout) .mini-player-active .mini-player-drag { min-width:30px;min-height:30px;padding:0 7px;border-radius:8px; }
+body:has(.cinema-layout) .mini-player-active .mini-player-toggle { min-width:30px;min-height:30px;padding:0 7px;border-radius:8px; }
+body:has(.cinema-layout) .mini-player-active .mini-player-resize { min-width:30px;min-height:30px;width:30px;height:30px;padding:0; }
+body:has(.cinema-layout) .mini-player-active .youtube-player-host,
+body:has(.cinema-layout) .mini-player-active video,
+body:has(.cinema-layout) .mini-player-active .embedded-source-wrap,
+body:has(.cinema-layout) .mini-player-active .embedded-source-player { width:100%;height:100%;min-height:0; }
+body:has(.cinema-layout) .mini-player-active .video-empty { min-height:0;height:100%;padding:12px; }
+body:has(.cinema-layout) .chat-new-messages { align-self:center;position:relative;z-index:2;margin:6px auto;padding:8px 12px;border:1px solid #ffcf3870;border-radius:999px;background:#201b0c;color:#ffe17a;font-size:11px;font-weight:800;box-shadow:0 5px 18px #0007; }
+@media(max-width:720px) {
+  body:has(.cinema-layout) .mini-player-toolbar { opacity:1;top:5px;right:5px; }
+  body:has(.cinema-layout) .mini-player-toggle { min-width:34px;min-height:34px;padding:0 8px;border-radius:9px; }
+  body:has(.cinema-layout) .mini-player-active { width:min(72vw,360px);max-height:none;bottom:calc(68px + env(safe-area-inset-bottom, 0px)); }
+  body:has(.cinema-layout) .mini-player-active .mini-player-drag span { display:none; }
+  body:has(.cinema-layout) .cinema-chat-messages { overscroll-behavior:contain;scroll-behavior:auto; }
+}
+@media(min-width:721px) { body:has(.cinema-layout) .mini-player-toolbar { display:none; } }
+
+@media(max-width:720px) {
+  /* On phones, prioritize the player and chat over decorative poster cards. */
+  body:has(.cinema-layout) .room-queue-section { display:none; }
+  body:has(.cinema-layout) .cinema-room-side { min-height:360px;height:min(56dvh,520px);max-height:520px;display:flex;flex-direction:column; }
+  body:has(.cinema-layout) .cinema-chat-messages { flex:1 1 auto;min-height:0;max-height:none; }
+  body:has(.cinema-layout) .room-side-hint { flex:0 0 auto; }
+}
+
+/* Fixed mini-player interactions: positions must be controlled by inline state. */
+body:has(.cinema-layout) .mini-player-active { left: auto; right: 12px; top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+body:has(.cinema-layout) .mini-player-active[style*="left"] { right: auto !important; bottom: auto !important; }
+body:has(.cinema-layout) .mini-player-toolbar { pointer-events: none; }
+body:has(.cinema-layout) .mini-player-toolbar > button { pointer-events: auto; }
+body:has(.cinema-layout) .mini-player-drag { touch-action: none; user-select: none; -webkit-user-select: none; }
+body:has(.cinema-layout) .mini-player-fullscreen { min-width:38px;min-height:38px;display:inline-flex;align-items:center;justify-content:center;padding:0 10px;border:1px solid #ffda4b99;border-radius:11px;background:#090a0def;color:#ffe17a;box-shadow:0 5px 18px #0009;pointer-events:auto; }
+body:has(.cinema-layout) .mini-player-edge { position:absolute; z-index:26; display:block; border:0; padding:0; background:transparent; touch-action:none; }
+body:has(.cinema-layout) .mini-player-edge-n, body:has(.cinema-layout) .mini-player-edge-s { left:22px;right:22px;height:12px; }
+body:has(.cinema-layout) .mini-player-edge-n { top:0;cursor:n-resize; }
+body:has(.cinema-layout) .mini-player-edge-s { bottom:0;cursor:s-resize; }
+body:has(.cinema-layout) .mini-player-edge-e, body:has(.cinema-layout) .mini-player-edge-w { top:22px;bottom:22px;width:12px; }
+body:has(.cinema-layout) .mini-player-edge-e { right:0;cursor:e-resize; }
+body:has(.cinema-layout) .mini-player-edge-w { left:0;cursor:w-resize; }
+body:has(.cinema-layout) .mini-player-edge-ne, body:has(.cinema-layout) .mini-player-edge-nw, body:has(.cinema-layout) .mini-player-edge-se, body:has(.cinema-layout) .mini-player-edge-sw { width:22px;height:22px; }
+body:has(.cinema-layout) .mini-player-edge-ne { top:0;right:0;cursor:ne-resize; }
+body:has(.cinema-layout) .mini-player-edge-nw { top:0;left:0;cursor:nw-resize; }
+body:has(.cinema-layout) .mini-player-edge-se { bottom:0;right:0;cursor:se-resize; }
+body:has(.cinema-layout) .mini-player-edge-sw { bottom:0;left:0;cursor:sw-resize; }
+@media(min-width:721px) { body:has(.cinema-layout) .mini-player-toolbar { display:flex;opacity:1; } }

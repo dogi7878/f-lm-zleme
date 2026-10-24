@@ -104,6 +104,10 @@ function isShareableVideoUrl(value: unknown): value is string {
   }
 }
 
+export function getAdminRoomSnapshots(): RoomSnapshot[] {
+  return [...rooms.values()].map((room) => snapshot(room));
+}
+
 function snapshot(room: Room): RoomSnapshot {
   return {
     roomId: room.roomId,

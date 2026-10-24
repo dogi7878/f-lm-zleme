@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent, type FormEvent, type ReactNode, type MouseEvent, type TouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent, type FormEvent, type ReactNode, type MouseEvent, type TouchEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useGetCapabilities, useHealthCheck } from '@workspace/api-client-react';
 import { io, type Socket } from 'socket.io-client';
@@ -7,7 +7,7 @@ import { Link, Route, Switch, useLocation, useParams } from 'wouter';
 import {
   ArrowDownLeft, ArrowLeft, Clipboard, ExternalLink, Film, Headphones, Link2,
   MessageCircle, Mic, MicOff, Pause, Play, Send, ShieldCheck, Sparkles, Users, Wifi, Settings, LogOut, RotateCcw, RotateCw,
-  Youtube, Upload, ListVideo, MoreHorizontal, Crown, MonitorPlay, ChevronRight,
+  Youtube, Upload, ListVideo, MoreHorizontal, Crown, MonitorPlay, ChevronRight, PictureInPicture2, Maximize2, Grip,
 } from 'lucide-react';
 
 declare global {
@@ -58,6 +58,21 @@ const createSocket = () => {
 };
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] ?? '').join('').toLocaleUpperCase('tr-TR');
 const formatTime = (time: number) => `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`;
+
+const extractYouTubeVideoId = (rawUrl: string): string | null => {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    if (!['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) return null;
+    if (host === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || null;
+    const fromQuery = url.searchParams.get('v');
+    if (fromQuery) return fromQuery;
+    const parts = url.pathname.split('/').filter(Boolean);
+    const markerIndex = parts.findIndex((part) => ['embed', 'live', 'shorts', 'v'].includes(part.toLowerCase()));
+    if (markerIndex >= 0 && parts[markerIndex + 1]) return parts[markerIndex + 1];
+    return null;
+  } catch { return null; }
+};
 
 function App() {
   return <QueryClientProvider client={queryClient}>
@@ -227,6 +242,35 @@ function RoomPage() {
   const peersRef = useRef(new Map<string, RTCPeerConnection>());
   const remoteAudioRef = useRef(new Map<string, HTMLAudioElement>());
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+  const chatNearBottomRef = useRef(true);
+  const previousMessageCountRef = useRef(room?.messages.length ?? 0);
+  const miniDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
+  const miniResizeRef = useRef<{ pointerId: number; startX: number; startY: number; width: number; height: number; edge: string } | null>(null);
+  const [miniPlayer, setMiniPlayer] = useState(false);
+  const [miniPlayerPosition, setMiniPlayerPosition] = useState<{ x: number; y: number } | null>(null);
+  const [miniPlayerSize, setMiniPlayerSize] = useState<{ width: number; height: number } | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  // Keep a floating player inside the visible viewport when the mobile keyboard opens.
+  useEffect(() => {
+    if (!miniPlayer || !miniPlayerPosition) return;
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const keepVisible = () => {
+      const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
+      if (!stage) return;
+      const rect = stage.getBoundingClientRect();
+      const left = Math.max(viewport.offsetLeft + 4, Math.min(miniPlayerPosition.x, viewport.offsetLeft + viewport.width - rect.width - 4));
+      const top = Math.max(viewport.offsetTop + 4, Math.min(miniPlayerPosition.y, viewport.offsetTop + viewport.height - rect.height - 8));
+      setMiniPlayerPosition((current) => current && (current.x !== left || current.y !== top) ? { x: left, y: top } : current);
+    };
+    viewport.addEventListener('resize', keepVisible);
+    viewport.addEventListener('scroll', keepVisible);
+    return () => {
+      viewport.removeEventListener('resize', keepVisible);
+      viewport.removeEventListener('scroll', keepVisible);
+    };
+  }, [miniPlayer, miniPlayerPosition?.x, miniPlayerPosition?.y]);
   const roomMoreMenuRef = useRef<HTMLDivElement | null>(null);
   const seekHideTimerRef = useRef<number | null>(null);
   const [seekControlsVisible, setSeekControlsVisible] = useState(false);
@@ -363,16 +407,104 @@ function RoomPage() {
     };
   }, [roomId, nickname, addPeer, isMember]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [room?.messages.length]);
-  const isYoutube = useMemo(() => {
-    if (!room?.videoUrl) return null;
+  useEffect(() => {
+    const count = room?.messages.length ?? 0;
+    const previousCount = previousMessageCountRef.current;
+    previousMessageCountRef.current = count;
+    if (count <= previousCount) return;
+    const list = chatListRef.current;
+    if (!list) return;
+    if (chatNearBottomRef.current) {
+      list.scrollTop = list.scrollHeight;
+      setUnreadMessages(0);
+    } else {
+      setUnreadMessages((value) => value + (count - previousCount));
+    }
+  }, [room?.messages.length]);
+
+  const handleChatScroll = () => {
+    const list = chatListRef.current;
+    if (!list) return;
+    const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 64;
+    chatNearBottomRef.current = nearBottom;
+    if (nearBottom) setUnreadMessages(0);
+  };
+
+  const jumpToLatestChat = () => {
+    const list = chatListRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    chatNearBottomRef.current = true;
+    setUnreadMessages(0);
+  };
+
+  const startMiniPlayerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!miniPlayer) return;
+    const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    miniDragRef.current = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const moveMiniPlayer = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = miniDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    setMiniPlayerPosition({
+      x: Math.max(4, Math.min(window.innerWidth - rect.width - 4, event.clientX - drag.offsetX)),
+      y: Math.max(4, Math.min(window.innerHeight - rect.height - 72, event.clientY - drag.offsetY)),
+    });
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const endMiniPlayerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (miniDragRef.current?.pointerId === event.pointerId) miniDragRef.current = null;
+  };
+
+  const startMiniPlayerResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!miniPlayer) return;
+    const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    miniResizeRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, width: rect.width, height: rect.height, edge: event.currentTarget.dataset.edge || 'se' };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const resizeMiniPlayer = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const resize = miniResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+    const dx = event.clientX - resize.startX;
+    const dy = event.clientY - resize.startY;
+    const horizontal = resize.edge.includes('e') ? dx : resize.edge.includes('w') ? -dx : 0;
+    const vertical = resize.edge.includes('s') ? dy : resize.edge.includes('n') ? -dy : 0;
+    const width = Math.max(180, Math.min(window.innerWidth - 12, 720, resize.width + horizontal));
+    const height = Math.max(105, Math.min(window.innerHeight * 0.78, 720, resize.height + vertical));
+    setMiniPlayerSize({ width, height });
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const endMiniPlayerResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (miniResizeRef.current?.pointerId === event.pointerId) miniResizeRef.current = null;
+  };
+
+  const togglePlayerFullscreen = async () => {
+    const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
+    if (!stage) return;
     try {
-      const url = new URL(room.videoUrl);
-      if (url.hostname === 'youtu.be') return url.pathname.slice(1);
-      if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(url.hostname)) return url.searchParams.get('v') || url.pathname.match(/\/embed\/([^/]+)/)?.[1] || null;
-      return null;
-    } catch { return null; }
-  }, [room?.videoUrl]);
+      if (document.fullscreenElement === stage) await document.exitFullscreen();
+      else if (!document.fullscreenElement && stage.requestFullscreen) await stage.requestFullscreen();
+    } catch { setToast('Tam ekran bu tarayıcıda desteklenmiyor.'); }
+  };
+  const isYoutube = useMemo(() => room?.videoUrl ? extractYouTubeVideoId(room.videoUrl) : null, [room?.videoUrl]);
   const isHls = useMemo(() => {
     if (!room?.videoUrl) return false;
     try { return new URL(room.videoUrl).pathname.toLowerCase().endsWith('.m3u8'); }
@@ -533,13 +665,8 @@ function RoomPage() {
     let parsed: URL;
     try { parsed = new URL(url); } catch { setError('Geçerli ve herkese açık bir video bağlantısı yaz.'); return; }
     if (parsed.protocol !== 'https:') { setError('Güvenli bağlantı için video URL’si HTTPS ile başlamalı.'); return; }
-    const youtubeHosts = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'];
-    const videoId = parsed.hostname === 'youtu.be'
-      ? parsed.pathname.slice(1)
-      : ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(parsed.hostname)
-        ? parsed.searchParams.get('v') || parsed.pathname.match(/^\/embed\/([\w-]{11})$/)?.[1] || ''
-        : '';
-    const validYoutube = youtubeHosts.includes(parsed.hostname) && /^[\w-]{11}$/.test(videoId);
+    const videoId = extractYouTubeVideoId(url) || '';
+    const validYoutube = /^[\w-]{11}$/.test(videoId);
     const supportedDirect = /\.(mp4|webm|ogg|m4v)$/i.test(parsed.pathname);
     const supportedHls = /\.m3u8$/i.test(parsed.pathname);
     setVideoIsPlaying(false); setVideoNeedsTap(false);
@@ -967,7 +1094,15 @@ function RoomPage() {
           </div>
         </div>
         {error && <div role="alert" className="error-banner" data-testid="status-room-error">{error}<button onClick={() => setError('')}>Kapat</button></div>}
-        <div className="video-stage cinema-video-stage" data-testid="video-stage" onDoubleClick={handleStageDoubleClick} onTouchStart={revealSeekControls} onTouchEnd={handleStageTouchEnd} onPointerMove={(event) => { if (event.pointerType === 'mouse') revealSeekControls(); }} onPointerLeave={(event) => { if (event.pointerType === 'mouse') setSeekControlsVisible(false); }}>
+        <div className={`video-stage cinema-video-stage ${miniPlayer ? 'mini-player-active' : ''}`} style={miniPlayer ? { ...(miniPlayerPosition ? { left: miniPlayerPosition.x, top: miniPlayerPosition.y, right: 'auto', bottom: 'auto' } : {}), ...(miniPlayerSize ? { width: miniPlayerSize.width, height: miniPlayerSize.height, aspectRatio: 'auto' } : {}) } : undefined} data-testid="video-stage" onTouchStart={revealSeekControls} onTouchEnd={handleStageTouchEnd} onPointerMove={(event) => { if (event.pointerType === 'mouse') revealSeekControls(); }} onPointerLeave={(event) => { if (event.pointerType === 'mouse') setSeekControlsVisible(false); }}>
+          <div className="mini-player-toolbar" aria-label="Oynatıcı kontrolleri">
+            {miniPlayer && <button type="button" className="mini-player-drag" aria-label="Mini oynatıcıyı taşı" title="Buradan tutup sürükle" onPointerDown={startMiniPlayerDrag} onPointerMove={moveMiniPlayer} onPointerUp={endMiniPlayerDrag} onPointerCancel={endMiniPlayerDrag}><Grip size={17} /><span>Taşı</span></button>}
+            <button type="button" className="mini-player-toggle" aria-label={miniPlayer ? 'Normal oynatıcıya dön' : 'Mini oynatıcıyı aç'} title={miniPlayer ? 'Normal boyuta dön' : 'Mini oynatıcı'} onClick={(event) => { event.stopPropagation(); setMiniPlayer((value) => !value); setMiniPlayerPosition(null); setMiniPlayerSize(null); }}>{miniPlayer ? <Maximize2 size={16} /> : <PictureInPicture2 size={16} />}</button>
+            {!miniPlayer && <button type="button" className="mini-player-fullscreen" aria-label="Tam ekran" title="Tam ekran" onClick={(event) => { event.stopPropagation(); void togglePlayerFullscreen(); }}><Maximize2 size={16} /></button>}
+          </div>
+          {miniPlayer && <>
+            {['n','e','s','w','ne','nw','se','sw'].map((edge) => <button key={edge} type="button" data-edge={edge} className={`mini-player-edge mini-player-edge-${edge}`} aria-label={`Oynatıcıyı ${edge} kenarından boyutlandır`} onPointerDown={startMiniPlayerResize} onPointerMove={resizeMiniPlayer} onPointerUp={endMiniPlayerResize} onPointerCancel={endMiniPlayerResize} />)}
+          </>}
           {room?.videoUrl && isYoutube
             ? <div ref={youtubeHostRef} className="youtube-player-host" aria-label="Eşzamanlı YouTube videosu" />
             : room?.videoUrl && isPageLink
@@ -1040,11 +1175,12 @@ function RoomPage() {
           <button type="button" role="tab" aria-selected={activeRoomTab === 'playlist'} className={activeRoomTab === 'playlist' ? 'panel-tab panel-tab-active' : 'panel-tab'} onClick={() => setActiveRoomTab('playlist')}><ListVideo size={15} /> Oynatma Listesi</button>
         </div>
         {activeRoomTab === 'chat' && <>
-          <div className="chat-messages cinema-chat-messages" data-testid="list-chat">
+          <div ref={chatListRef} onScroll={handleChatScroll} className="chat-messages cinema-chat-messages" data-testid="list-chat">
             {room?.messages.map((item) => <ChatBubble key={item.id} message={item} />)}
             {!room?.messages.length && <div className="chat-empty">Henüz sohbette ses yok.<br />İlk mesajı sen bırak.</div>}
             <div ref={chatEndRef} />
           </div>
+          {unreadMessages > 0 && <button type="button" className="chat-new-messages" onClick={jumpToLatestChat}>{unreadMessages} yeni mesaj · En alta git</button>}
           <form className="chat-form cinema-chat-form" onSubmit={submitChat}>
             <input data-testid="input-chat-message" aria-label="Sohbet mesajı" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Bir şeyler yaz…" maxLength={500} />
             <button className="send-btn" data-testid="button-send-message" type="submit" aria-label="Mesaj gönder" disabled={!message.trim()}><Send size={18} /></button>

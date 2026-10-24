@@ -69,4 +69,10 @@ Thumbs.db
 
 # Temporary upload chunks
 /artifacts/api-server/uploads/.tmp/
+.env
+.env.*
+!.env.example
+node_modules/
+artifacts/api-server/uploads/
+_uploads-diagnosis/
 
