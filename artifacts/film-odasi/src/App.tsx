@@ -59,25 +59,13 @@ const createSocket = () => {
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] ?? '').join('').toLocaleUpperCase('tr-TR');
 const formatTime = (time: number) => `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`;
 
-const extractYouTubeVideoId = (rawUrl: string): string | null => {
-  try {
-    const url = new URL(rawUrl);
-    const host = url.hostname.toLowerCase().replace(/^www\./, '');
-    if (!['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) return null;
-    if (host === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || null;
-    const fromQuery = url.searchParams.get('v');
-    if (fromQuery) return fromQuery;
-    const parts = url.pathname.split('/').filter(Boolean);
-    const markerIndex = parts.findIndex((part) => ['embed', 'live', 'shorts', 'v'].includes(part.toLowerCase()));
-    if (markerIndex >= 0 && parts[markerIndex + 1]) return parts[markerIndex + 1];
-    return null;
-  } catch { return null; }
-};
+import AdminPage from './AdminPage';
 
 function App() {
   return <QueryClientProvider client={queryClient}>
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/admin" component={AdminPage} />
       <Route path="/:roomId" component={RoomPage} />
       <Route component={NotFound} />
     </Switch>
@@ -143,7 +131,7 @@ function HomePage() {
       <nav className="home-nav" aria-label="Ana menü">
         <a className="active" href="#anasayfa">Ana Sayfa</a><a href="#ozellikler">Özellikler</a><a href="#nasil-calisir">Nasıl Çalışır?</a><a href="#sss">SSS</a>
       </nav>
-      <div className="home-top-actions"><a className="home-login" href="#giris" onClick={(e) => { e.preventDefault(); document.getElementById('nickname')?.focus(); }}>Giriş Yap</a><a className="home-start" href="#oda-olustur" onClick={(e) => { e.preventDefault(); document.getElementById('nickname')?.focus(); }}>Hemen Başla</a></div>
+      <div className="home-top-actions"><a className="home-login" href="#giris" onClick={(e) => { e.preventDefault(); document.getElementById('nickname')?.focus(); }}>Giriş Yap</a><a className="home-login" href="/admin">Yönetim Paneli</a><a className="home-start" href="#oda-olustur" onClick={(e) => { e.preventDefault(); document.getElementById('nickname')?.focus(); }}>Hemen Başla</a></div>
     </header>
     <main className="landing home-landing" id="anasayfa">
       <section className="home-hero">
@@ -224,6 +212,8 @@ function RoomPage() {
   const [error, setError] = useState('');
   const [micEnabled, setMicEnabled] = useState(false);
   const [audioNeedsTap, setAudioNeedsTap] = useState(false);
+  const [adminAudioRequest, setAdminAudioRequest] = useState<{ observerId: string; nickname: string } | null>(null);
+  const observerPeerIdsRef = useRef(new Set<string>());
   const [videoIsPlaying, setVideoIsPlaying] = useState(false);
   const [videoNeedsTap, setVideoNeedsTap] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -251,26 +241,6 @@ function RoomPage() {
   const [miniPlayerPosition, setMiniPlayerPosition] = useState<{ x: number; y: number } | null>(null);
   const [miniPlayerSize, setMiniPlayerSize] = useState<{ width: number; height: number } | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  // Keep a floating player inside the visible viewport when the mobile keyboard opens.
-  useEffect(() => {
-    if (!miniPlayer || !miniPlayerPosition) return;
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const keepVisible = () => {
-      const stage = document.querySelector<HTMLElement>('.cinema-video-stage');
-      if (!stage) return;
-      const rect = stage.getBoundingClientRect();
-      const left = Math.max(viewport.offsetLeft + 4, Math.min(miniPlayerPosition.x, viewport.offsetLeft + viewport.width - rect.width - 4));
-      const top = Math.max(viewport.offsetTop + 4, Math.min(miniPlayerPosition.y, viewport.offsetTop + viewport.height - rect.height - 8));
-      setMiniPlayerPosition((current) => current && (current.x !== left || current.y !== top) ? { x: left, y: top } : current);
-    };
-    viewport.addEventListener('resize', keepVisible);
-    viewport.addEventListener('scroll', keepVisible);
-    return () => {
-      viewport.removeEventListener('resize', keepVisible);
-      viewport.removeEventListener('scroll', keepVisible);
-    };
-  }, [miniPlayer, miniPlayerPosition?.x, miniPlayerPosition?.y]);
   const roomMoreMenuRef = useRef<HTMLDivElement | null>(null);
   const seekHideTimerRef = useRef<number | null>(null);
   const [seekControlsVisible, setSeekControlsVisible] = useState(false);
@@ -292,14 +262,14 @@ function RoomPage() {
     };
   }, [moreMenuOpen]);
 
-  const addPeer = useCallback((peerId: string) => {
+  const addPeer = useCallback((peerId: string, initiate = true) => {
     const existing = peersRef.current.get(peerId);
     if (existing) return existing;
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     peersRef.current.set(peerId, pc);
-    streamRef.current?.getTracks().forEach((track) => pc.addTrack(track, streamRef.current!));
+    if (initiate) streamRef.current?.getTracks().forEach((track) => pc.addTrack(track, streamRef.current!));
     pc.onicecandidate = (event) => { if (event.candidate) socketRef.current?.emit('voice:signal', { to: peerId, signal: event.candidate }); };
-    pc.onnegotiationneeded = async () => {
+    if (initiate) pc.onnegotiationneeded = async () => {
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -330,7 +300,7 @@ function RoomPage() {
       setRoom(state);
       const participantIds = new Set(state.participants.map((person) => person.id));
       for (const [peerId, pc] of peersRef.current) {
-        if (participantIds.has(peerId)) continue;
+        if (participantIds.has(peerId) || observerPeerIdsRef.current.has(peerId)) continue;
         pc.close();
         peersRef.current.delete(peerId);
         const audio = remoteAudioRef.current.get(peerId);
@@ -342,8 +312,17 @@ function RoomPage() {
     const handleMessage = (incoming: ChatMessage) => setRoom((current) => current ? { ...current, messages: [...current.messages, incoming] } : current);
     const handlePeer = ({ peerId }: { peerId: string; nickname: string }) => { addPeer(peerId); };
     const handleSignal = async ({ from, signal }: SignalMessage) => {
-      const pc = addPeer(from);
+      const isAdminObserver = observerPeerIdsRef.current.has(from);
+      const pc = addPeer(from, !isAdminObserver);
       if ('type' in signal && signal.type === 'offer') {
+        // The observer initiates the receive-audio offer. The participant must still
+        // attach their existing microphone track so the answer contains an audio sender.
+        if (isAdminObserver && streamRef.current) {
+          const existingTrackIds = new Set(pc.getSenders().map((sender) => sender.track?.id).filter(Boolean));
+          streamRef.current.getAudioTracks().forEach((track) => {
+            if (!existingTrackIds.has(track.id)) pc.addTrack(track, streamRef.current!);
+          });
+        }
         await pc.setRemoteDescription(signal);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -353,6 +332,25 @@ function RoomPage() {
       } else {
         await pc.addIceCandidate(signal as RTCIceCandidateInit).catch(() => undefined);
       }
+    };
+    const handleAdminAudioRequest = ({ observerId, nickname: observerNickname }: { observerId: string; nickname: string }) => {
+      // Auto-accept only after this participant explicitly chose to remember consent for this room.
+      let rememberedConsent = false;
+      try { rememberedConsent = window.localStorage.getItem(`admin-audio-consent:${roomId}`) === 'yes'; } catch { /* Storage may be disabled. */ }
+      if (rememberedConsent) {
+        observerPeerIdsRef.current.add(observerId);
+        socketRef.current?.emit('room:admin-audio-consent', { observerId, accepted: true });
+        setToast('Bu oda için önceden verdiğin ses izni kullanıldı. İzni kaldırmak için oda içindeki ses izni ayarını kullan.');
+        return;
+      }
+      setAdminAudioRequest({ observerId, nickname: observerNickname || 'Yönetici' });
+    };
+    const handleAdminAudioEnded = ({ observerId }: { observerId: string }) => {
+      observerPeerIdsRef.current.delete(observerId);
+      const pc = peersRef.current.get(observerId);
+      pc?.close(); peersRef.current.delete(observerId);
+      const audio = remoteAudioRef.current.get(observerId);
+      if (audio) { audio.pause(); audio.srcObject = null; remoteAudioRef.current.delete(observerId); }
     };
     const handleRoomError = ({ message }: { message: string }) => setError(message);
     const handleDisconnect = () => {
@@ -374,6 +372,8 @@ function RoomPage() {
     socket.on('room:message', handleMessage);
     socket.on('room:peer-joined', handlePeer);
     socket.on('voice:signal', handleSignal);
+    socket.on('room:admin-audio-request', handleAdminAudioRequest);
+    socket.on('room:admin-audio-ended', handleAdminAudioEnded);
     socket.on('room:error', handleRoomError);
     socket.on('disconnect', handleDisconnect);
     socket.on('connect_error', handleConnectError);
@@ -397,11 +397,13 @@ function RoomPage() {
       socket.off('room:state', handleState); socket.off('room:video', handleVideo);
       socket.off('room:playback', handlePlayback); socket.off('room:message', handleMessage);
       socket.off('room:peer-joined', handlePeer); socket.off('voice:signal', handleSignal);
+      socket.off('room:admin-audio-request', handleAdminAudioRequest); socket.off('room:admin-audio-ended', handleAdminAudioEnded);
       socket.off('room:error', handleRoomError); socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError); socket.off('connect', join);
       socket.disconnect();
       peersRef.current.forEach((pc) => pc.close()); peersRef.current.clear();
       remoteAudioRef.current.forEach((audio) => { audio.pause(); audio.srcObject = null; }); remoteAudioRef.current.clear();
+      observerPeerIdsRef.current.clear(); setAdminAudioRequest(null);
       streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null;
       liveSocket = null; activeRoom = ''; activeNickname = '';
     };
@@ -504,7 +506,15 @@ function RoomPage() {
       else if (!document.fullscreenElement && stage.requestFullscreen) await stage.requestFullscreen();
     } catch { setToast('Tam ekran bu tarayıcıda desteklenmiyor.'); }
   };
-  const isYoutube = useMemo(() => room?.videoUrl ? extractYouTubeVideoId(room.videoUrl) : null, [room?.videoUrl]);
+  const isYoutube = useMemo(() => {
+    if (!room?.videoUrl) return null;
+    try {
+      const url = new URL(room.videoUrl);
+      if (url.hostname === 'youtu.be') return url.pathname.slice(1);
+      if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(url.hostname)) return url.searchParams.get('v') || url.pathname.match(/\/embed\/([^/]+)/)?.[1] || null;
+      return null;
+    } catch { return null; }
+  }, [room?.videoUrl]);
   const isHls = useMemo(() => {
     if (!room?.videoUrl) return false;
     try { return new URL(room.videoUrl).pathname.toLowerCase().endsWith('.m3u8'); }
@@ -665,8 +675,13 @@ function RoomPage() {
     let parsed: URL;
     try { parsed = new URL(url); } catch { setError('Geçerli ve herkese açık bir video bağlantısı yaz.'); return; }
     if (parsed.protocol !== 'https:') { setError('Güvenli bağlantı için video URL’si HTTPS ile başlamalı.'); return; }
-    const videoId = extractYouTubeVideoId(url) || '';
-    const validYoutube = /^[\w-]{11}$/.test(videoId);
+    const youtubeHosts = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'];
+    const videoId = parsed.hostname === 'youtu.be'
+      ? parsed.pathname.slice(1)
+      : ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(parsed.hostname)
+        ? parsed.searchParams.get('v') || parsed.pathname.match(/^\/embed\/([\w-]{11})$/)?.[1] || ''
+        : '';
+    const validYoutube = youtubeHosts.includes(parsed.hostname) && /^[\w-]{11}$/.test(videoId);
     const supportedDirect = /\.(mp4|webm|ogg|m4v)$/i.test(parsed.pathname);
     const supportedHls = /\.m3u8$/i.test(parsed.pathname);
     setVideoIsPlaying(false); setVideoNeedsTap(false);
@@ -1061,6 +1076,18 @@ function RoomPage() {
         <button className="room-top-exit" type="button" onClick={() => { socketRef.current?.disconnect(); activeRoom = ''; seededRoom = null; navigate('/'); }}><LogOut size={17} /> Odadan Çık</button>
       </div>
     </header>
+    <div role="note" aria-label="Moderasyon bilgilendirmesi" style={{margin:"10px auto 0",width:"min(1440px,calc(100% - 28px))",padding:"10px 14px",border:"1px solid rgba(139,124,255,.35)",borderRadius:12,background:"rgba(139,124,255,.08)",color:"var(--text-secondary, #c5c8d8)",fontSize:12,lineHeight:1.5}}>
+      <strong style={{color:"var(--text-primary, #f3f4ff)"}}>Moderasyon bilgilendirmesi:</strong> Güvenlik ve destek amacıyla yetkili moderatörler bu odanın katılımcı durumunu, oynatma senkronizasyonunu ve oda sohbetini inceleyebilir.
+    </div>
+    {adminAudioRequest && <div role="alertdialog" aria-label="Yönetici canlı ses erişimi" style={{margin:"10px auto 0",width:"min(1440px,calc(100% - 28px))",padding:14,border:"1px solid #d6a84f",borderRadius:12,background:"rgba(214,168,79,.12)",color:"var(--text-primary, #f3f4ff)"}}>
+      <strong>{adminAudioRequest.nickname} canlı ses erişimi istiyor.</strong>
+      <p style={{margin:"6px 0 12px",fontSize:13}}>İzin verirsen yönetici mikrofonundan gelen sesi duyabilir. “Bu odada hatırla” seçeneği gelecekteki yönetici gözlem oturumlarında bu cihazda otomatik izin verir; bu tercihi tarayıcı verilerini temizleyerek kaldırabilirsin.</p>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button type="button" className="btn-primary" onClick={() => { observerPeerIdsRef.current.add(adminAudioRequest.observerId); socketRef.current?.emit('room:admin-audio-consent', { observerId: adminAudioRequest.observerId, accepted: true }); setAdminAudioRequest(null); }}>Yalnızca bu oturum için izin ver</button>
+        <button type="button" className="btn-primary" onClick={() => { try { window.localStorage.setItem(`admin-audio-consent:${roomId}`, 'yes'); } catch { /* Storage may be disabled; this session still works. */ } observerPeerIdsRef.current.add(adminAudioRequest.observerId); socketRef.current?.emit('room:admin-audio-consent', { observerId: adminAudioRequest.observerId, accepted: true }); setAdminAudioRequest(null); }}>İzin ver ve bu odada hatırla</button>
+        <button type="button" className="pill-action" onClick={() => { socketRef.current?.emit('room:admin-audio-consent', { observerId: adminAudioRequest.observerId, accepted: false }); setAdminAudioRequest(null); }}>Reddet</button>
+      </div>
+    </div>}
     <main className="room-layout cinema-layout">
       <section className="watch-main">
         <div className="room-header">

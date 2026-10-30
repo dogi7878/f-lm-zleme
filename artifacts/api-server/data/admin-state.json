@@ -1,0 +1,783 @@
+{
+  "settings": {
+    "maintenanceMode": false,
+    "maintenanceMessage": "Sitemiz kısa bir bakım çalışması nedeniyle geçici olarak kullanılamıyor. Lütfen biraz sonra tekrar dene.",
+    "emptyRoomTimeoutSeconds": 120
+  },
+  "metrics": [
+    {
+      "at": "2026-10-24T14:52:42.073Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:53:42.088Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:54:42.100Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:55:42.106Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:56:42.114Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:57:42.115Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:58:42.125Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T14:59:42.126Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:00:42.129Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:01:42.141Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:02:42.167Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:03:42.179Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:04:42.187Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:05:46.504Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:06:46.514Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:08:37.069Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:09:37.075Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:10:37.083Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:11:37.085Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:12:37.095Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:14:15.245Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:15:15.257Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:16:15.269Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:17:15.272Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:18:15.277Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:19:15.286Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:20:15.302Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:44:25.224Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:45:25.228Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:46:25.242Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:47:25.247Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:48:25.258Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:49:25.263Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:50:25.264Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:51:25.272Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:52:25.283Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:53:25.285Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:54:25.287Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:55:25.297Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:56:25.305Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:57:25.313Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:58:25.326Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T15:59:25.328Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:00:25.335Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:01:25.337Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:02:25.351Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:03:25.350Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:04:25.361Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:05:25.373Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:06:25.386Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:07:25.400Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:08:25.402Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:52:34.067Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:53:34.073Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:54:34.086Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:55:34.092Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:56:54.401Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:57:54.413Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:58:54.424Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T16:59:54.432Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:00:54.442Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:01:54.452Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:02:54.466Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:03:54.469Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:04:54.477Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:05:54.478Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:06:54.485Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:07:54.499Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:08:54.500Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:09:54.503Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:10:54.503Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:11:54.514Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:12:54.528Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:13:54.539Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:14:54.547Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:15:54.553Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:16:54.568Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:17:54.580Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:18:54.587Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:19:54.599Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:20:54.608Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:21:54.614Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:22:54.618Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T17:26:14.648Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:28:05.627Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:29:05.633Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:30:05.642Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:31:05.648Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:32:05.663Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:33:05.678Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:34:05.682Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:35:05.695Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:36:05.707Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:37:05.715Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:38:05.721Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:39:05.723Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:40:05.728Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:41:05.732Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:42:05.749Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:43:05.755Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:44:05.762Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:45:05.764Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:46:05.774Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:47:05.775Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:48:05.782Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:49:05.782Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:50:05.790Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:51:05.793Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:52:05.796Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:53:05.798Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:54:05.805Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:55:05.807Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:56:05.808Z",
+      "rooms": 2,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:57:05.817Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:58:05.823Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T17:59:05.833Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:00:05.834Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:01:05.840Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:02:05.848Z",
+      "rooms": 2,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:05:09.707Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:06:09.714Z",
+      "rooms": 1,
+      "participants": 1,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:07:09.724Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T18:08:09.725Z",
+      "rooms": 1,
+      "participants": 0,
+      "messages": 1
+    },
+    {
+      "at": "2026-10-24T18:09:09.732Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:10:09.736Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:11:09.751Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:12:09.761Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:13:09.768Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    },
+    {
+      "at": "2026-10-24T18:14:09.772Z",
+      "rooms": 0,
+      "participants": 0,
+      "messages": 0
+    }
+  ]
+}

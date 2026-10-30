@@ -1,0 +1,218 @@
+[
+  {
+    "at": "2026-10-24T18:07:14.783Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: c94b51b79297",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T18:07:05.786Z",
+    "action": "PARTICIPANT_KICK",
+    "detail": "Katılımcı odadan çıkarıldı. Oda: c94b51b79297",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T18:06:20.240Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: c94b51b79297",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T18:06:13.701Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: c94b51b79297",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T18:05:46.817Z",
+    "action": "PARTICIPANT_KICK",
+    "detail": "Katılımcı odadan çıkarıldı. Oda: c94b51b79297",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:54:34.208Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:53:35.709Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:49:54.070Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:49:51.184Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:48:59.315Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:48:56.600Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 532d07a5748d",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:47:47.902Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:47:29.926Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:47:27.409Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:37:53.324Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:37:50.231Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:37:15.236Z",
+    "action": "ROOM_AUDIO_ACCESS_REQUESTED",
+    "detail": "Yetkili yönetici canlı ses erişimi talep etti. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:37:11.004Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 22ad68611d47",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:35:50.806Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:35:44.562Z",
+    "action": "ADMIN_LOGOUT",
+    "detail": "Yönetici çıkış yaptı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:12:34.913Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 05ff1fbcabf7",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T17:10:30.324Z",
+    "action": "ROOM_OBSERVATION_OPENED",
+    "detail": "Yetkili moderasyon gözlemi açıldı. Oda: 05ff1fbcabf7",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T16:56:12.462Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T15:49:33.571Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T15:19:22.854Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:54:44.748Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:54:34.818Z",
+    "action": "ADMIN_LOGOUT",
+    "detail": "Yönetici çıkış yaptı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:52:45.733Z",
+    "action": "ADMIN_LOGIN",
+    "detail": "Yönetici girişi başarılı.",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:43:58.286Z",
+    "action": "PARTICIPANT_KICK",
+    "detail": "Katılımcı odadan çıkarıldı. Oda: 686e4da72511",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:43:19.966Z",
+    "action": "PARTICIPANT_KICK",
+    "detail": "Katılımcı odadan çıkarıldı. Oda: 686e4da72511",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:42:08.003Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: 335b60e58773bd140f20a6c8ec37811c.mp4",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:42:06.527Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: 5d0b336f472aed1cff347e5a904414a0.mp4",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:42:05.059Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: 8641cddfa365da69c4cb56e3a474266f.mp4",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:42:03.542Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: 95d1d2dfd17cb6cea141f0531f3c8293.mp4",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:42:01.494Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: f17a16f83efff806c8a2da3c35dc604d.mp4",
+    "ip": "::ffff:127.0.0.1"
+  },
+  {
+    "at": "2026-10-24T14:41:59.096Z",
+    "action": "VIDEO_DELETE",
+    "detail": "Video dosyası silindi: f8490b1625545abfc7cf313268fb2989.mp4",
+    "ip": "::ffff:127.0.0.1"
+  }
+]
